@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe Pro - Real-time Voice Edition</title>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
+        import { getDatabase, ref, set, onValue, update, remove, push, off, onDisconnect, get } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
+        
+        const firebaseConfig = {
+  apiKey: "AIzaSyD8LRTXClXjF1hSh2lc_miKTibARkR1V_8",
+  authDomain: "my-back-f1121.firebaseapp.com",
+  projectId: "my-back-f1121",
+  storageBucket: "my-back-f1121.firebasestorage.app",
+  messagingSenderId: "336040759745",
+  appId: "1:336040759745:web:10c7913c9eebf3cd031f40"
+};
+        
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        
+        window.firebaseDB = database;
+        window.firebaseRefs = { ref, set, onValue, update, remove, push, off, onDisconnect, get };
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #00d4ff;
+            --secondary: #ff006e;
+            --accent: #fb5607;
+            --success: #06ffa5;
+            --bg-dark: #0a0e27;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--bg-dark);
+            min-height: 100vh;
+            overflow-x: hidden;
+            color: white;
+            position: relative;
+        }
+        
+        /* Animated Background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(0, 212, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 0, 110, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(251, 86, 7, 0.1) 0%, transparent 50%);
+        }
+        
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: float 15s infinite;
+            opacity: 0.6;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
+        }
+        
+        /* Main Container */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: slideDown 0.8s ease;
+        }
+        
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3em;
+            font-weight: 900;
+            background: linear-gradient(45deg, var(--primary), var(--secondary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+            letter-spacing: 2px;
+            animation: glow 3s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5)); }
+            to { filter: drop-shadow(0 0 30px rgba(255, 0, 110, 0.5)); }
+        }
+        
+        .subtitle {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1.1em;
+            margin-top: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        
+        /* Glass Panel */
+        .glass-panel {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            animation: fadeIn 1s ease;
+        }
+        
+        /* Room Section */
+        .room-section {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .btn-glow {
+            position: relative;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 16px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .btn-create {
+            background: linear-gradient(135deg, var(--primary), #0099cc);
+            color: white;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+        }
+        
+        .btn-join {
+            background: linear-gradient(135deg, var(--secondary), #cc0058);
+            color: white;
+            box-shadow: 0 0 20px rgba(255, 0, 110, 0.4);
+        }
+        
+        .btn-glow:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 40px rgba(0, 212, 255, 0.6);
+        }
+        
+        .btn-glow:active {
+            transform: translateY(-1px);
+        }
+        
+        .btn-glow::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn-glow:hover::before {
+            left: 100%;
+        }
+        
+        /* Join Input */
+        .join-container {
+            display: flex;
+            gap: 15px;
+            animation: slideUp 0.6s ease 0.2s both;
+        }
+        
+        .input-glow {
+            flex: 1;
+            padding: 18px 25px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid var(--glass-border);
+            border-radius: 12px;
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.2em;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            outline: none;
+        }
+        
+        .input-glow:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .input-glow::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+            text-transform: none;
+            letter-spacing: 1px;
+        }
+        
+        /* Room Info Card */
+        .room-card {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(255, 0, 110, 0.1));
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            animation: scaleIn 0.5s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .room-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: conic-gradient(from 0deg, transparent, var(--primary), transparent 30%);
+            animation: rotate 4s linear infinite;
+            opacity: 0.1;
+        }
+        
+        @keyframes rotate {
+            100% { transform: rotate(360deg); }
+        }
+        
+        .room-label {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+        }
+        
+        .room-id {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5em;
+            font-weight: 900;
+            color: var(--primary);
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            letter-spacing: 5px;
+            margin: 15px 0;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            font-weight: 600;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: blink 1.5s infinite;
+            box-shadow: 0 0 10px var(--accent);
+        }
+        
+        .status-dot.connected {
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+            animation: none;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        /* Players Status */
+        .players-status {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 25px;
+        }
+        
+        .player-avatar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            opacity: 0.4;
+            transition: all 0.3s;
+        }
+        
+        .player-avatar.active {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .avatar-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8em;
+            font-weight: 900;
+            border: 3px solid;
+            transition: all 0.3s;
+        }
+        
+        .player-avatar.active .avatar-icon.x {
+            border-color: var(--primary);
+            background: rgba(0, 212, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            color: var(--primary);
+        }
+        
+        .player-avatar.active .avatar-icon.o {
+            border-color: var(--secondary);
+            background: rgba(255, 0, 110, 0.2);
+            box-shadow: 0 0 20px rgba(255, 0, 110, 0.5);
+            color: var(--secondary);
+        }
+        
+        .player-label {
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        /* Game Section */
+        .game-section {
+            display: none;
+            animation: fadeIn 0.8s ease;
+        }
+        
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+        }
+        
+        .turn-indicator {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .turn-label {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .turn-player {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5em;
+            font-weight: 700;
+            padding: 8px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .turn-player.x-turn {
+            background: rgba(0, 212, 255, 0.2);
+            color: var(--primary);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+            animation: turnPulse 2s infinite;
+        }
+        
+        .turn-player.o-turn {
+            background: rgba(255, 0, 110, 0.2);
+            color: var(--secondary);
+            box-shadow: 0 0 20px rgba(255, 0, 110, 0.3);
+            animation: turnPulse 2s infinite;
+        }
+        
+        @keyframes turnPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        /* Game Board */
+        .board-container {
+            perspective: 1000px;
+            margin-bottom: 30px;
+        }
+        
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            transform-style: preserve-3d;
+            animation: boardEntry 0.8s ease;
+        }
+        
+        @keyframes boardEntry {
+            from { 
+                opacity: 0; 
+                transform: rotateX(30deg) translateY(50px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: rotateX(0) translateY(0); 
+            }
+        }
+        
+        .cell {
+            aspect-ratio: 1;
+            background: var(--glass);
+            border: 2px solid var(--glass-border);
+            border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3.5em;
+            font-weight: 900;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cell::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.5s;
+        }
+        
+        .cell:hover:not(.taken) {
+            border-color: var(--primary);
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
+        }
+        
+        .cell.taken {
+            cursor: not-allowed;
+        }
+        
+        .cell.x {
+            color: var(--primary);
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
+            animation: placeX 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            border-color: rgba(0, 212, 255, 0.5);
+            background: rgba(0, 212, 255, 0.1);
+        }
+        
+        .cell.o {
+            color: var(--secondary);
+            text-shadow: 0 0 30px rgba(255, 0, 110, 0.8);
+            animation: placeO 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            border-color: rgba(255, 0, 110, 0.5);
+            background: rgba(255, 0, 110, 0.1);
+        }
+        
+        @keyframes placeX {
+            0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+            50% { transform: scale(1.2) rotate(10deg); }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        
+        @keyframes placeO {
+            0% { transform: scale(0) rotate(180deg); opacity: 0; }
+            50% { transform: scale(1.2) rotate(-10deg); }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        
+        .cell.winning {
+            animation: winGlow 1.5s infinite;
+            z-index: 10;
+        }
+        
+        .cell.winning.x {
+            background: rgba(0, 212, 255, 0.3);
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.6);
+        }
+        
+        .cell.winning.o {
+            background: rgba(255, 0, 110, 0.3);
+            box-shadow: 0 0 40px rgba(255, 0, 110, 0.6);
+        }
+        
+        @keyframes winGlow {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.05); filter: brightness(1.3); }
+        }
+        
+        /* Result Overlay */
+        .result-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 39, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            animation: fadeIn 0.5s;
+        }
+        
+        .result-overlay.active {
+            display: flex;
+        }
+        
+        .result-content {
+            text-align: center;
+            animation: scaleIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        
+        .result-icon {
+            font-size: 6em;
+            margin-bottom: 20px;
+            animation: bounce 1s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .result-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3em;
+            font-weight: 900;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+        }
+        
+        .result-text.win {
+            background: linear-gradient(45deg, var(--success), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .result-text.lose {
+            background: linear-gradient(45deg, var(--secondary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .result-text.draw {
+            background: linear-gradient(45deg, #ffd700, #ff8c00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* Voice Section */
+        .voice-panel {
+            background: linear-gradient(135deg, rgba(6, 255, 165, 0.1), rgba(0, 212, 255, 0.1));
+            border: 1px solid rgba(6, 255, 165, 0.3);
+            border-radius: 20px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+        
+        .voice-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.1em;
+            color: var(--success);
+        }
+        
+        .voice-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .voice-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .voice-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s;
+        }
+        
+        .voice-btn:hover::before {
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-call {
+            background: linear-gradient(135deg, var(--success), #00cc88);
+            color: white;
+            box-shadow: 0 0 20px rgba(6, 255, 165, 0.4);
+        }
+        
+        .btn-call:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(6, 255, 165, 0.6);
+        }
+        
+        .btn-call.calling {
+            background: linear-gradient(135deg, var(--accent), #ff5500);
+            animation: callPulse 1.5s infinite;
+        }
+        
+        @keyframes callPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(251, 86, 7, 0.4); }
+            50% { box-shadow: 0 0 40px rgba(251, 86, 7, 0.8); }
+        }
+        
+        .btn-call.connected {
+            background: linear-gradient(135deg, #ff4444, #cc0000);
+        }
+        
+        .btn-mute {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+        
+        .btn-mute.muted {
+            background: rgba(255, 68, 68, 0.3);
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+        
+        .voice-status {
+            text-align: center;
+            margin-top: 15px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .voice-waves {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            height: 30px;
+            margin-top: 10px;
+        }
+        
+        .voice-waves.active {
+            display: flex;
+        }
+        
+        .wave-bar {
+            width: 4px;
+            background: var(--success);
+            border-radius: 2px;
+            animation: wave 1s ease-in-out infinite;
+        }
+        
+        .wave-bar:nth-child(1) { height: 10px; animation-delay: 0s; }
+        .wave-bar:nth-child(2) { height: 20px; animation-delay: 0.1s; }
+        .wave-bar:nth-child(3) { height: 15px; animation-delay: 0.2s; }
+        .wave-bar:nth-child(4) { height: 25px; animation-delay: 0.3s; }
+        .wave-bar:nth-child(5) { height: 12px; animation-delay: 0.4s; }
+        
+        @keyframes wave {
+            0%, 100% { transform: scaleY(0.5); }
+            50% { transform: scaleY(1); }
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 39, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+            animation: fadeIn 0.3s;
+        }
+        
+        .modal-box {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            animation: scaleIn 0.3s;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            animation: ring 1s infinite;
+        }
+        
+        @keyframes ring {
+            0%, 100% { transform: rotate(0deg); }
+            10% { transform: rotate(10deg); }
+            30% { transform: rotate(-10deg); }
+            50% { transform: rotate(10deg); }
+            70% { transform: rotate(-10deg); }
+        }
+        
+        .modal-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            color: white;
+        }
+        
+        .modal-text {
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 30px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        .btn-accept, .btn-reject {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .btn-accept {
+            background: var(--success);
+            color: #0a0e27;
+            box-shadow: 0 0 20px rgba(6, 255, 165, 0.4);
+        }
+        
+        .btn-accept:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(6, 255, 165, 0.6);
+        }
+        
+        .btn-reject {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .btn-reject:hover {
+            background: rgba(255, 68, 68, 0.3);
+            border-color: #ff4444;
+        }
+        
+        /* Utility */
+        .hidden {
+            display: none !important;
+        }
+        
+        .error-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #ff4444, #cc0000);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(255, 68, 68, 0.4);
+            animation: slideInRight 0.3s;
+            z-index: 3000;
+            font-weight: 600;
+        }
+        
+        @keyframes slideInRight {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes scaleIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        
+        /* Responsive */
+        @media (max-width: 600px) {
+            .logo { font-size: 2em; }
+            .glass-panel { padding: 25px; }
+            .action-buttons { grid-template-columns: 1fr; }
+            .cell { font-size: 2.5em; }
+            .room-id { font-size: 1.8em; }
+            .players-status { gap: 20px; }
+            .avatar-icon { width: 50px; height: 50px; font-size: 1.4em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-animation"></div>
+    <div class="particles" id="particles"></div>
+    
+    <div class="container">
+        <div class="header">
+            <h1 class="logo">TIC TAC TOE PRO</h1>
+            <p class="subtitle">Real-time Multiplayer & Voice Chat</p>
+        </div>
+        
+        <div class="glass-panel">
+            <!-- Room Section -->
+            <div class="room-section" id="roomSection">
+                <div class="action-buttons">
+                    <button class="btn-glow btn-create" onclick="createRoom()">
+                        Create Room
+                    </button>
+                    <button class="btn-glow btn-join" onclick="showJoinInput()">
+                        Join Room
+                    </button>
+                </div>
+                
+                <div class="join-container hidden" id="joinContainer">
+                    <input type="text" class="input-glow" id="joinInput" placeholder="ENTER ROOM ID" maxlength="6">
+                    <button class="btn-glow btn-join" onclick="joinRoom()" style="padding: 18px 30px;">
+                        Connect
+                    </button>
+                </div>
+                
+                <div class="room-card hidden" id="roomCard">
+                    <div class="room-label">Room ID</div>
+                    <div class="room-id" id="roomIdDisplay">------</div>
+                    
+                    <div class="players-status">
+                        <div class="player-avatar" id="playerX">
+                            <div class="avatar-icon x">X</div>
+                            <span class="player-label">Player X</span>
+                        </div>
+                        <div class="player-avatar" id="playerO">
+                            <div class="avatar-icon o">O</div>
+                            <span class="player-label">Player O</span>
+                        </div>
+                    </div>
+                    
+                    <div class="connection-status">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span id="connectionText">Waiting for opponent...</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Game Section -->
+            <div class="game-section" id="gameSection">
+                <div class="game-header">
+                    <div class="turn-indicator">
+                        <span class="turn-label">Current Turn</span>
+                        <div class="turn-player" id="turnDisplay">X</div>
+                    </div>
+                    <button class="btn-glow btn-join" onclick="leaveGame()" style="padding: 12px 24px; font-size: 0.9em;">
+                        Leave
+                    </button>
+                </div>
+                
+                <div class="board-container">
+                    <div class="board" id="board">
+                        <div class="cell" data-index="0"></div>
+                        <div class="cell" data-index="1"></div>
+                        <div class="cell" data-index="2"></div>
+                        <div class="cell" data-index="3"></div>
+                        <div class="cell" data-index="4"></div>
+                        <div class="cell" data-index="5"></div>
+                        <div class="cell" data-index="6"></div>
+                        <div class="cell" data-index="7"></div>
+                        <div class="cell" data-index="8"></div>
+                    </div>
+                </div>
+                
+                <!-- Voice Panel -->
+                <div class="voice-panel">
+                    <div class="voice-header">
+                        <span>🎙️</span>
+                        <span>Voice Communication</span>
+                    </div>
+                    
+                    <div class="voice-controls">
+                        <button class="voice-btn btn-call" id="callBtn" onclick="toggleCall()">
+                            📞
+                        </button>
+                        <button class="voice-btn btn-mute hidden" id="muteBtn" onclick="toggleMute()">
+                            🎤
+                        </button>
+                    </div>
+                    
+                    <div class="voice-waves" id="voiceWaves">
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                    </div>
+                    
+                    <div class="voice-status" id="voiceStatus">Tap to start voice chat</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Result Overlay -->
+    <div class="result-overlay" id="resultOverlay">
+        <div class="result-content">
+            <div class="result-icon" id="resultIcon">🏆</div>
+            <div class="result-text" id="resultText">YOU WIN!</div>
+            <button class="btn-glow btn-create" onclick="playAgain()" style="padding: 20px 50px;">
+                Play Again
+            </button>
+        </div>
+    </div>
+    
+    <!-- Incoming Call Modal -->
+    <div class="modal-overlay" id="callModal">
+        <div class="modal-box">
+            <div class="modal-icon">📞</div>
+            <h3 class="modal-title">Incoming Call</h3>
+            <p class="modal-text">Your opponent wants to start a voice chat</p>
+            <div class="modal-buttons">
+                <button class="btn-accept" onclick="acceptCall()">Accept</button>
+                <button class="btn-reject" onclick="rejectCall()">Reject</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize particles
+        function createParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 15 + 's';
+                particle.style.animationDuration = (10 + Math.random() * 10) + 's';
+                container.appendChild(particle);
+            }
+        }
+        createParticles();
+        
+        // Firebase refs
+        let db, ref, set, onValue, update, remove, push, off, onDisconnect, get;
+        
+        // Game state
+        let currentRoomId = null;
+        let playerRole = null;
+        let isMyTurn = false;
+        let gameActive = false;
+        let roomListener = null;
+        let callListener = null;
+        let iceListener = null;
+        let opponentConnected = false;
+        
+        // WebRTC
+        let localStream = null;
+        let remoteStream = null;
+        let peerConnection = null;
+        let isMuted = false;
+        let callInProgress = false;
+        let isCaller = false;
+        
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+        
+        // Initialize Firebase
+        setTimeout(() => {
+            if (window.firebaseDB) {
+                db = window.firebaseDB;
+                ({ ref, set, onValue, update, remove, push, off, onDisconnect, get } = window.firebaseRefs);
+                console.log('Firebase ready');
+            }
+        }, 1000);
+        
+        // Room Management
+        function generateRoomId() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+        
+        function showJoinInput() {
+            document.getElementById('joinContainer').classList.remove('hidden');
+            document.getElementById('joinInput').focus();
+        }
+        
+        async function createRoom() {
+            if (!db) return showError('System initializing...');
+            
+            const roomId = generateRoomId();
+            currentRoomId = roomId;
+            playerRole = 'X';
+            
+            try {
+                await set(ref(db, `rooms/${roomId}`), {
+                    board: Array(9).fill(''),
+                    currentTurn: 'X',
+                    players: { X: true, O: false },
+                    gameActive: true,
+                    winner: null,
+                    winningLine: null,
+                    createdAt: Date.now(),
+                    lastMove: null
+                });
+                
+                // Setup disconnect cleanup
+                onDisconnect(ref(db, `rooms/${roomId}/players/X`)).set(false);
+                
+                showRoomCard(roomId);
+                listenToRoom(roomId);
+                
+            } catch (error) {
+                showError('Failed to create room');
+            }
+        }
+        
+        async function joinRoom() {
+            if (!db) return showError('System initializing...');
+            
+            const roomId = document.getElementById('joinInput').value.trim().toUpperCase();
+            if (!roomId) return showError('Enter Room ID');
+            
+            try {
+                const snapshot = await get(ref(db, `rooms/${roomId}`));
+                const data = snapshot.val();
+                
+                if (!data) return showError('Room not found');
+                if (data.players.O) return showError('Room is full');
+                
+                currentRoomId = roomId;
+                playerRole = 'O';
+                
+                await update(ref(db, `rooms/${roomId}/players`), { O: true });
+                onDisconnect(ref(db, `rooms/${roomId}/players/O`)).set(false);
+                
+                showRoomCard(roomId);
+                listenToRoom(roomId);
+                
+            } catch (error) {
+                showError('Failed to join room');
+            }
+        }
+        
+        function showRoomCard(roomId) {
+            document.getElementById('roomCard').classList.remove('hidden');
+            document.getElementById('roomIdDisplay').textContent = roomId;
+            document.querySelector('.action-buttons').style.display = 'none';
+            document.getElementById('joinContainer').classList.add('hidden');
+            
+            // Show this player as active
+            document.getElementById(`player${playerRole}`).classList.add('active');
+        }
+        
+        function listenToRoom(roomId) {
+            const roomRef = ref(db, `rooms/${roomId}`);
+            
+            roomListener = onValue(roomRef, (snapshot) => {
+                const data = snapshot.val();
+                if (!data) return handleDisconnect();
+                
+                // Check opponent connection
+                const opponent = playerRole === 'X' ? 'O' : 'X';
+                const opponentActive = data.players[opponent];
+                
+                if (opponentActive && !opponentConnected) {
+                    opponentConnected = true;
+                    document.getElementById('player' + opponent).classList.add('active');
+                    document.getElementById('statusDot').classList.add('connected');
+                    document.getElementById('connectionText').textContent = 'Opponent connected!';
+                    
+                    setTimeout(() => {
+                        document.getElementById('roomSection').style.display = 'none';
+                        document.getElementById('gameSection').style.display = 'block';
+                        startGame(data);
+                    }, 1500);
+                } else if (!opponentActive && opponentConnected) {
+                    opponentConnected = false;
+                    document.getElementById('player' + opponent).classList.remove('active');
+                    document.getElementById('statusDot').classList.remove('connected');
+                    document.getElementById('connectionText').textContent = 'Opponent disconnected';
+                }
+                
+                if (gameActive) updateGame(data);
+            });
+        }
+        
+        function startGame(data) {
+            gameActive = true;
+            updateGame(data);
+            listenForCalls();
+            
+            // Add click handlers
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.addEventListener('click', handleCellClick);
+            });
+        }
+        
+        function updateGame(data) {
+            // Update board
+            const cells = document.querySelectorAll('.cell');
+            data.board.forEach((mark, index) => {
+                const cell = cells[index];
+                if (mark && !cell.textContent) {
+                    cell.textContent = mark;
+                    cell.classList.add('taken', mark.toLowerCase());
+                }
+            });
+            
+            // Update turn
+            const turnDisplay = document.getElementById('turnDisplay');
+            turnDisplay.textContent = data.currentTurn;
+            turnDisplay.className = 'turn-player ' + (data.currentTurn === 'X' ? 'x-turn' : 'o-turn');
+            
+            isMyTurn = data.currentTurn === playerRole && !data.winner && data.gameActive;
+            
+            // Check winner
+            if (data.winner) {
+                handleGameEnd(data.winner, data.winningLine);
+            }
+        }
+        
+        async function handleCellClick(e) {
+            if (!isMyTurn || !gameActive) return;
+            
+            const index = e.target.dataset.index;
+            if (e.target.textContent) return;
+            
+            const roomRef = ref(db, `rooms/${currentRoomId}`);
+            const snapshot = await get(roomRef);
+            const data = snapshot.val();
+            
+            const newBoard = [...data.board];
+            newBoard[index] = playerRole;
+            
+            const result = checkWinner(newBoard);
+            const updates = {
+                board: newBoard,
+                currentTurn: playerRole === 'X' ? 'O' : 'X',
+                lastMove: Date.now()
+            };
+            
+            if (result.winner) {
+                updates.winner = result.winner;
+                updates.winningLine = result.line;
+                updates.gameActive = false;
+            }
+            
+            await update(roomRef, updates);
+        }
+        
+        function checkWinner(board) {
+            const lines = [
+                [0,1,2], [3,4,5], [6,7,8],
+                [0,3,6], [1,4,7], [2,5,8],
+                [0,4,8], [2,4,6]
+            ];
+            
+            for (let line of lines) {
+                const [a,b,c] = line;
+                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                    return { winner: board[a], line };
+                }
+            }
+            
+            return board.every(c => c) ? { winner: 'draw', line: null } : { winner: null };
+        }
+        
+        function handleGameEnd(winner, line) {
+            gameActive = false;
+            
+            // Highlight winning cells
+            if (line) {
+                line.forEach(i => document.querySelector(`[data-index="${i}"]`).classList.add('winning'));
+            }
+            
+            // Show result after delay
+            setTimeout(() => {
+                const overlay = document.getElementById('resultOverlay');
+                const icon = document.getElementById('resultIcon');
+                const text = document.getElementById('resultText');
+                
+                overlay.classList.add('active');
+                
+                if (winner === 'draw') {
+                    icon.textContent = '🤝';
+                    text.textContent = 'DRAW!';
+                    text.className = 'result-text draw';
+                } else if (winner === playerRole) {
+                    icon.textContent = '🏆';
+                    text.textContent = 'YOU WIN!';
+                    text.className = 'result-text win';
+                } else {
+                    icon.textContent = '😢';
+                    text.textContent = 'YOU LOSE!';
+                    text.className = 'result-text lose';
+                }
+            }, 1000);
+        }
+        
+        async function playAgain() {
+            document.getElementById('resultOverlay').classList.remove('active');
+            
+            // Reset board visually
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.textContent = '';
+                cell.className = 'cell';
+            });
+            
+            // Reset game state
+            await update(ref(db, `rooms/${currentRoomId}`), {
+                board: Array(9).fill(''),
+                currentTurn: 'X',
+                winner: null,
+                winningLine: null,
+                gameActive: true,
+                lastMove: Date.now()
+            });
+            
+            gameActive = true;
+        }
+        
+        function leaveGame() {
+            if (confirm('Leave this game?')) {
+                if (callInProgress) endCall();
+                if (currentRoomId) remove(ref(db, `rooms/${currentRoomId}`));
+                location.reload();
+            }
+        }
+        
+        function handleDisconnect() {
+            showError('Connection lost - Reloading...');
+            setTimeout(() => location.reload(), 2000);
+        }
+        
+        // Voice Chat
+        async function toggleCall() {
+            if (callInProgress) {
+                endCall();
+            } else {
+                initiateCall();
+            }
+        }
+        
+        async function initiateCall() {
+            isCaller = true;
+            const btn = document.getElementById('callBtn');
+            btn.classList.add('calling');
+            btn.innerHTML = '📯';
+            
+            document.getElementById('voiceStatus').textContent = 'Calling opponent...';
+            
+            await update(ref(db, `rooms/${currentRoomId}/call`), {
+                type: 'request',
+                from: playerRole,
+                timestamp: Date.now()
+            });
+        }
+        
+        function listenForCalls() {
+            onValue(ref(db, `rooms/${currentRoomId}/call`), async (snap) => {
+                const data = snap.val();
+                if (!data || data.from === playerRole) return;
+                
+                if (data.type === 'request' && !callInProgress) {
+                    document.getElementById('callModal').classList.add('active');
+                }
+                
+                if (data.type === 'offer') await handleOffer(data);
+                if (data.type === 'answer') await handleAnswer(data);
+                if (data.type === 'reject') handleReject();
+                if (data.type === 'end') handleEndCall();
+            });
+            
+            onValue(ref(db, `rooms/${currentRoomId}/ice`), async (snap) => {
+                const candidates = snap.val();
+                if (!candidates || !peerConnection) return;
+                
+                Object.values(candidates).forEach(c => {
+                    if (c.from !== playerRole && peerConnection.remoteDescription) {
+                        peerConnection.addIceCandidate(new RTCIceCandidate(c.candidate));
+                    }
+                });
+            });
+        }
+        
+        async function acceptCall() {
+            document.getElementById('callModal').classList.remove('active');
+            await startWebRTC(false);
+        }
+        
+        function rejectCall() {
+            document.getElementById('callModal').classList.remove('active');
+            update(ref(db, `rooms/${currentRoomId}/call`), {
+                type: 'reject',
+                from: playerRole
+            });
+        }
+        
+        async function startWebRTC(isOfferer) {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                peerConnection = new RTCPeerConnection(rtcConfig);
+                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+                
+                peerConnection.ontrack = (e) => {
+                    remoteStream = e.streams[0];
+                    const audio = new Audio();
+                    audio.srcObject = remoteStream;
+                    audio.play();
+                    callConnected();
+                };
+                
+                peerConnection.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        push(ref(db, `rooms/${currentRoomId}/ice`), {
+                            candidate: e.candidate.toJSON(),
+                            from: playerRole
+                        });
+                    }
+                };
+                
+                if (isOfferer) {
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    await update(ref(db, `rooms/${currentRoomId}/call`), {
+                        type: 'offer',
+                        sdp: offer,
+                        from: playerRole
+                    });
+                }
+            } catch (err) {
+                showError('Voice chat failed: ' + err.message);
+                resetCallUI();
+            }
+        }
+        
+        async function handleOffer(data) {
+            await startWebRTC(false);
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            await update(ref(db, `rooms/${currentRoomId}/call`), {
+                type: 'answer',
+                sdp: answer,
+                from: playerRole
+            });
+        }
+        
+        async function handleAnswer(data) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        }
+        
+        function callConnected() {
+            callInProgress = true;
+            const btn = document.getElementById('callBtn');
+            btn.classList.remove('calling');
+            btn.classList.add('connected');
+            btn.innerHTML = '📵';
+            
+            document.getElementById('muteBtn').classList.remove('hidden');
+            document.getElementById('voiceWaves').classList.add('active');
+            document.getElementById('voiceStatus').textContent = 'Voice connected';
+        }
+        
+        function toggleMute() {
+            if (!localStream) return;
+            isMuted = !isMuted;
+            localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+            
+            const btn = document.getElementById('muteBtn');
+            btn.classList.toggle('muted', isMuted);
+            btn.innerHTML = isMuted ? '🔇' : '🎤';
+        }
+        
+        async function endCall() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+                localStream = null;
+            }
+            
+            await update(ref(db, `rooms/${currentRoomId}/call`), {
+                type: 'end',
+                from: playerRole
+            });
+            
+            handleEndCall();
+        }
+        
+        function handleEndCall() {
+            callInProgress = false;
+            resetCallUI();
+        }
+        
+        function handleReject() {
+            resetCallUI();
+            document.getElementById('voiceStatus').textContent = 'Call rejected';
+            setTimeout(() => {
+                if (!callInProgress) document.getElementById('voiceStatus').textContent = 'Tap to start voice chat';
+            }, 3000);
+        }
+        
+        function resetCallUI() {
+            const btn = document.getElementById('callBtn');
+            btn.classList.remove('calling', 'connected');
+            btn.innerHTML = '📞';
+            
+            document.getElementById('muteBtn').classList.add('hidden');
+            document.getElementById('muteBtn').classList.remove('muted');
+            document.getElementById('muteBtn').innerHTML = '🎤';
+            document.getElementById('voiceWaves').classList.remove('active');
+            document.getElementById('voiceStatus').textContent = 'Tap to start voice chat';
+            isMuted = false;
+        }
+        
+        function showError(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'error-toast';
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+        
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            if (currentRoomId && db) {
+                if (callInProgress) update(ref(db, `rooms/${currentRoomId}/call`), { type: 'end' });
+                remove(ref(db, `rooms/${currentRoomId}`));
+            }
+        });
+    </script>
+</body>
+</html>
